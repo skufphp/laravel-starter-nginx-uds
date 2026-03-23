@@ -2,8 +2,8 @@ services:
   # Основной контейнер Laravel PHP-FPM
   laravel-php-nginx-socket:
     build:
-      context: ./docker
-      dockerfile: php.Dockerfile
+      context: .
+      dockerfile: docker/php.Dockerfile
       target: php-base
     container_name: laravel-php-nginx-socket
     restart: unless-stopped
@@ -37,8 +37,8 @@ services:
   # Веб-сервер Nginx (Proxy)
   laravel-nginx-socket:
     build:
-      context: ./docker
-      dockerfile: nginx.Dockerfile
+      context: .
+      dockerfile: docker/nginx.Dockerfile
     container_name: laravel-nginx-socket
     restart: unless-stopped
     volumes:

@@ -1,44 +1,57 @@
 # ==============================================================================
-# .dockerignore — Исключения из контекста сборки Docker
+# .dockerignore — исключения из контекста сборки Docker
 # ==============================================================================
-# Уменьшает размер контекста, ускоряет сборку и предотвращает утечку секретов.
 
-# --- VCS и IDE ---
+# Git
 .git
 .gitignore
-.idea
-.vscode
-*.swp
-*.swo
+.gitattributes
+.github/
 
-# --- Docker (не нужны внутри образа) ---
+# IDE
+.idea/
+.vscode/
+.editorconfig
+
+# Docker (не нужны внутри образа)
 docker-compose*.yml
-docker/
 Makefile
 .dockerignore
-.env
-.env.*
 
-# --- Документация ---
+# Документация
 docs/
 *.md
 LICENSE
 
-# --- Зависимости (устанавливаются внутри образа) ---
+# Переменные окружения (секреты!)
+.env
+.env.*
+!.env.example
+
+# Node.js (собирается в отдельном stage)
 node_modules/
+
+# PHP зависимости (устанавливаются внутри образа через composer install)
 vendor/
 
-# --- Кеши и логи ---
-storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-
-# --- Тесты ---
+# Тесты
 tests/
 phpunit.xml
 .phpunit.result.cache
 
-# --- CI/CD ---
-gitlab-ci.yml
-.gitlab-ci.yml
+# Кеши и логи
+storage/logs/
+storage/app/
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite dev-server флаг (не нужен в production)
+public/hot
+
+# Кеши Laravel (могут содержать dev-зависимости)
+bootstrap/cache/*.php
