@@ -49,10 +49,9 @@ Laravel как REST / GraphQL API без UI. Один сервис, проста
 │   └── nginx/
 │       └── conf.d/
 │           └── laravel.conf    # Nginx vhost (security headers, FastCGI буферы)
-├── docker-compose.yml          # Базовые сервисы (PHP, Nginx, Postgres, Redis, Queue, Scheduler)
-├── docker-compose.dev.yml      # Dev overlay (монтирование кода, HMR, pgAdmin, порты)
-├── docker-compose.prod.yml     # Prod overlay (образы из registry, миграции)
-├── docker-compose.test.yml     # Test overlay (изолированная БД, coverage)
+├── docker-compose.yml          # Базовые сервисы и разработка
+├── docker-compose.prod.yml     # Prod: образы из registry
+├── docker-compose.prod.local.yml # Prod: локальный запуск (сборка из Dockerfile)
 ├── .dockerignore               # Исключения из контекста сборки
 ├── .env.docker                 # Шаблон Docker-переменных для .env
 ├── Makefile                    # Автоматизация всех операций
@@ -80,7 +79,7 @@ cd my-project
 
 Скопируйте в корень Laravel-проекта:
 - Папку `docker/` (со всеми подпапками)
-- Файлы `docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`, `docker-compose.test.yml`
+- Файлы `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.prod.local.yml`
 - Файлы `Makefile`, `.dockerignore`, `.env.docker`
 
 ### Шаг 3. Настройка .env
@@ -90,13 +89,13 @@ cd my-project
 ```dotenv
 # --- Замените стандартные значения ---
 DB_CONNECTION=pgsql
-DB_HOST=laravel-postgres-nginx-socket
+DB_HOST=laravel-postgres-nginx-uds
 DB_PORT=5432
 DB_DATABASE=laravel
 DB_USERNAME=postgres
 DB_PASSWORD=root
 
-REDIS_HOST=laravel-redis-nginx-socket
+REDIS_HOST=laravel-redis-nginx-uds
 REDIS_PORT=6379
 
 QUEUE_CONNECTION=redis
@@ -154,13 +153,13 @@ make logs        # Логи всех сервисов
 - Vite HMR для горячей перезагрузки фронтенда
 - pgAdmin для управления БД
 - Порты PostgreSQL и Redis проброшены наружу для IDE/GUI-клиентов
-- Xdebug доступен через `.env` (`XDEBUG_MODE=debug`)
+- Xdebug включен по умолчанию в `docker-compose.yml` (можно управлять через `.env`)
 - `php.ini` с `display_errors = On`
 
 ### Production
 
 ```bash
-make up-prod     # Запустить из registry-образов
+make up-prod     # Запустить локально из образов (через docker-compose.prod.local.yml)
 ```
 
 Особенности prod-режима:
@@ -172,18 +171,16 @@ make up-prod     # Запустить из registry-образов
 - Graceful shutdown (`STOPSIGNAL SIGQUIT`)
 - Процесс PHP-FPM запускается от `www-data` (non-root)
 
-### Testing (CI)
+### Testing
 
 ```bash
-make test-ci     # Полный цикл: поднять окружение → миграции → тесты → очистка
 make test-php    # Тесты в текущем dev-окружении
 make test-coverage  # Тесты с покрытием кода (Xdebug coverage)
 ```
 
-Особенности test-режима:
-- Изолированная БД `laravel_test`
-- Queue и Scheduler отключены (profiles: disabled)
-- Xdebug в режиме `coverage`
+Особенности тестирования:
+- По умолчанию используется основная БД (можно настроить в `phpunit.xml`)
+- Xdebug в режиме `coverage` (для `make test-coverage`)
 
 ---
 
@@ -254,88 +251,6 @@ make test-coverage  # Тесты с покрытием кода (Xdebug coverage
 
 ---
 
-## Тестирование
-
-### Локальные тесты (в dev-окружении)
-
-```bash
-make test-php
-```
-
-### CI-тесты (изолированное окружение)
-
-```bash
-make test-ci
-```
-
-Поднимает отдельное окружение с тестовой БД, запускает миграции и тесты, затем удаляет всё.
-
-### Покрытие кода
-
-```bash
-make test-coverage
-```
-
-Требует Xdebug. В `docker-compose.test.yml` уже настроен `XDEBUG_MODE=coverage`.
-
-### Настройка phpunit.xml
-
-Для корректной работы в Docker добавьте в `phpunit.xml`:
-
-```xml
-<php>
-    <env name="DB_CONNECTION" value="pgsql"/>
-    <env name="DB_HOST" value="laravel-postgres-nginx-socket"/>
-    <env name="DB_DATABASE" value="laravel_test"/>
-    <env name="DB_USERNAME" value="postgres"/>
-    <env name="DB_PASSWORD" value="testing"/>
-</php>
-```
-
----
-
-## Production-деплой
-
-### Сборка production-образа
-
-```bash
-# Сборка PHP-образа (включает composer install, фронтенд-ассеты, prod php.ini)
-docker build -f docker/php.Dockerfile --target production -t myapp/php:latest ./
-
-# Сборка Nginx-образа
-docker build -f docker/nginx.Dockerfile -t myapp/nginx:latest ./docker
-```
-
-### Что включает production-образ
-
-1. **php.prod.ini** — `display_errors = Off`, OPCache без проверки timestamps, JIT включён
-2. **composer install --no-dev** — только production-зависимости с оптимизированным автозагрузчиком
-3. **Собранные фронтенд-ассеты** — из multi-stage сборки Node.js
-4. **STOPSIGNAL SIGQUIT** — корректное завершение обработки запросов
-5. **USER www-data** — запуск от непривилегированного пользователя
-6. **Кеширование Laravel** — config, routes, views очищены для пересборки при старте
-
-### Деплой через Docker Compose
-
-```bash
-# На сервере
-export CI_REGISTRY_IMAGE=registry.example.com/myapp
-export IMAGE_TAG=v1.0.0
-
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-Сервис `migrate` автоматически выполнит миграции при старте.
-
-### CI/CD (GitLab)
-
-Файл `gitlab-ci.yml` подключает шаблон из внутреннего репозитория. Настройте переменные в GitLab CI/CD Settings:
-
-- `CI_REGISTRY_IMAGE` — адрес Docker Registry
-- `IMAGE_TAG` — тег образа (обычно `$CI_COMMIT_SHORT_SHA` или `$CI_COMMIT_TAG`)
-
----
-
 ## Архитектура Docker
 
 ### Схема взаимодействия
@@ -344,15 +259,15 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
                     ┌─────────────┐
                     │   Client    │
                     └──────┬──────┘
-                           │ :80
+                           │ :80 / :8050
                     ┌──────▼──────┐
                     │    Nginx    │
-                    │  (1.27-alp) │
+                    │   (Alpine)  │
                     └──────┬──────┘
                            │ Unix Socket
                     ┌──────▼──────┐
                     │   PHP-FPM   │──────────┐
-                    │  (8.5-alp)  │          │
+                    │ (8.5 Alpine)│          │
                     └──────┬──────┘          │
                            │                 │
               ┌────────────┼────────────┐    │
@@ -363,14 +278,11 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
        └─────────────┘ └──────┘ └──────────────┘
 ```
 
-### Compose overlay-стратегия
+### Compose стратегия
 
-- **docker-compose.yml** — базовые сервисы (всегда используется)
-- **docker-compose.dev.yml** — dev: монтирование кода, HMR, pgAdmin, порты
-- **docker-compose.prod.yml** — prod: registry-образы, миграции
-- **docker-compose.test.yml** — test: изолированная БД, coverage
-
-Запуск: `docker compose -f docker-compose.yml -f docker-compose.<env>.yml up -d`
+- **docker-compose.yml** — базовая конфигурация и среда разработки.
+- **docker-compose.prod.yml** — конфигурация для CI/CD и Registry.
+- **docker-compose.prod.local.yml** — локальный запуск продакшен-окружения.
 
 ### Multi-stage Dockerfile
 
@@ -451,7 +363,7 @@ make logs-php
 
 Убедитесь, что `DB_HOST` в `.env` совпадает с именем сервиса в `docker-compose.yml`:
 ```dotenv
-DB_HOST=laravel-postgres-nginx-socket
+DB_HOST=laravel-postgres-nginx-uds
 ```
 
 ### Права доступа (storage/cache)

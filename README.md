@@ -21,9 +21,9 @@
 ## 📂 Структура проекта
 
 *   `docker/` — Dockerfiles и конфигурационные файлы для PHP, Nginx и др.
-*   `docker-compose.yml` — Базовая конфигурация сервисов.
-*   `docker-compose.dev.yml` — Переопределения для локальной разработки.
-*   `docker-compose.prod.yml` — Настройки для продакшена.
+*   `docker-compose.yml` — Базовая конфигурация сервисов и разработка.
+*   `docker-compose.prod.yml` — Настройки для продакшена (Registry).
+*   `docker-compose.prod.local.yml` — Настройки для локального запуска продакшена.
 *   `Makefile` — Главный пульт управления проектом.
 *   `docs/` — Дополнительная документация и планы развития.
 
@@ -43,7 +43,8 @@
 
 ## 💻 Основные команды (Makefile)
 
-*   `make up` — Запустить проект в dev-режиме.
+*   `make up` — Запустить проект в dev-режиме (на порту 80 или `NGINX_PORT`).
+*   `make up-prod` — Запустить проект в prod-режиме (на порту 8050 по умолчанию).
 *   `make down` — Остановить контейнеры.
 *   `make setup` — Полная инициализация проекта (сборка, запуск, миграции).
 *   `make artisan CMD="migrate"` — Выполнить команду artisan.
@@ -57,8 +58,8 @@
 
 *   **Web-сайт:** [http://localhost](http://localhost)
 *   **pgAdmin:** [http://localhost:8080](http://localhost:8080)
-*   **Postgres:** `localhost:5432` (снаружи)
-*   **Redis:** `localhost:6379` (снаружи)
+*   **Postgres:** `localhost:5432` (снаружи, если не переопределено в `.env`)
+*   **Redis:** `localhost:6379` (снаружи, если не переопределено в `.env`)
 
 ---
 *Подробная инструкция по установке и настройке находится в [SETUP.md](SETUP.md).*
