@@ -82,7 +82,58 @@ cd my-project
 - Файлы `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.prod.local.yml`
 - Файлы `Makefile`, `.dockerignore`, `.env.docker`
 
-### Шаг 3. Настройка .env
+### Шаг 3. Настройка конфигурационных файлов Laravel
+
+#### Удаление лишних файлов
+
+Laravel по умолчанию создаёт `database/database.sqlite`. В этом стеке используется PostgreSQL, поэтому удалите файл и добавьте маску в `.gitignore`:
+
+```bash
+rm database/database.sqlite
+```
+
+Добавьте в `.gitignore`:
+
+```
+database/*.sqlite
+```
+
+#### Обновление fallback-значений конфигурации
+
+Laravel хранит дефолтные значения подключений в `config/`. По умолчанию они указывают на `sqlite` и `database`. Для корректной работы в случае проблем с `.env` (сломался dotenv, забыли скопировать) замените их на значения, соответствующие этому стеку:
+
+**`config/database.php`**
+```php
+'default' => env('DB_CONNECTION', 'pgsql'),
+```
+
+**`config/queue.php`**
+```php
+'default' => env('QUEUE_CONNECTION', 'redis'),
+// ...
+'batching' => [
+    'database' => env('DB_CONNECTION', 'pgsql'),
+],
+'failed' => [
+    'database' => env('DB_CONNECTION', 'pgsql'),
+],
+```
+
+**`config/cache.php`**
+```php
+'default' => env('CACHE_STORE', 'redis'),
+```
+
+**`config/session.php`**
+```php
+'driver' => env('SESSION_DRIVER', 'redis'),
+```
+
+> **Примечание:** Миграция `create_cache_table` создаёт таблицу `cache` в БД, но при `CACHE_STORE=redis` она не используется. Её можно удалить для чистоты или оставить как fallback — на ваше усмотрение.
+
+---
+
+### Шаг 4. Настройка .env
 
 Откройте `.env` и внесите изменения:
 
@@ -116,7 +167,7 @@ XDEBUG_START=no
 XDEBUG_CLIENT_HOST=host.docker.internal
 ```
 
-### Шаг 4. Запуск
+### Шаг 5. Запуск
 
 ```bash
 make setup
@@ -330,6 +381,18 @@ production      →  php-base + код + vendor + ассеты + prod php.ini
 Все сервисы используют Docker `json-file` драйвер с ротацией:
 - Максимальный размер файла: **10 MB**
 - Максимальное количество файлов: **3**
+
+#### Laravel: логирование в Docker (Production)
+
+В production рекомендуется направлять логи Laravel в `stderr` вместо файла `storage/logs/laravel.log`. Это соответствует Docker-native подходу: логи попадают в `docker logs` и агрегируются любым log-driver (json-file, fluentd, Loki и др.):
+
+```dotenv
+# .env (production)
+LOG_CHANNEL=stack
+LOG_STACK=stderr
+```
+
+> По умолчанию (`LOG_CHANNEL=single`) Laravel пишет в файл внутри иммутабельного контейнера, что не рекомендуется для production.
 
 ---
 
