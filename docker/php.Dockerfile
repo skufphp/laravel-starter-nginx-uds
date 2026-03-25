@@ -102,8 +102,12 @@ FROM php-base AS development
 ARG INSTALL_XDEBUG=false
 RUN set -eux; \
     if [ "${INSTALL_XDEBUG}" = "true" ]; then \
+      apk add --no-cache --virtual .xdebug-build-deps \
+        $PHPIZE_DEPS \
+        linux-headers; \
       pie install xdebug/xdebug; \
       docker-php-ext-enable xdebug; \
+      apk del .xdebug-build-deps; \
     fi
 
 # Конфигурация php.ini для разработки

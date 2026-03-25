@@ -40,6 +40,7 @@ services:
     build:
       context: .
       dockerfile: docker/nginx.Dockerfile
+      target: development
     image: laravel-nginx-uds:dev
     pull_policy: never
     container_name: laravel-nginx-uds
@@ -165,7 +166,7 @@ services:
     working_dir: /var/www/laravel
     volumes:
       - .:/var/www/laravel
-    command: [ "sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done" ]
+    command: [ "php", "artisan", "schedule:work" ]
     networks:
       - laravel-nginx-uds-network
     depends_on:
