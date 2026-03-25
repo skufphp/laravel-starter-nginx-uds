@@ -54,8 +54,8 @@ services:
     working_dir: /var/www/laravel
     command: >
       sh -c "
-        php artisan migrate --force &&
         php artisan optimize:clear &&
+        php artisan migrate --force &&
         exec php-fpm -F
       "
     networks:
